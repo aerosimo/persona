@@ -90,6 +90,7 @@ public class PersonaHubREST {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response uploadAvatarJson(ImageRequestDTO req) {
+        log.info("Uploading avatar image for user {} ", req.getUsername());
         if (req == null || req.getUsername() == null || req.getAvatar() == null)
             return badRequest("missing required fields");
 
