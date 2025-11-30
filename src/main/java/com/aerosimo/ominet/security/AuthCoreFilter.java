@@ -2,9 +2,9 @@
  * This piece of work is to enhance personahub project functionality.         *
  *                                                                            *
  * Author:    eomisore                                                        *
- * File:      PersonaHubFilter.java                                           *
- * Created:   30/11/2025, 00:10                                               *
- * Modified:  30/11/2025, 00:10                                               *
+ * File:      AuthCoreFilter.java                                             *
+ * Created:   30/11/2025, 21:32                                               *
+ * Modified:  30/11/2025, 21:32                                               *
  *                                                                            *
  * Copyright (c)  2025.  Aerosimo Ltd                                         *
  *                                                                            *
@@ -29,43 +29,71 @@
  *                                                                            *
  ******************************************************************************/
 
-package com.aerosimo.ominet.api;
+package com.aerosimo.ominet.security;
 
-import com.aerosimo.ominet.security.AuthCore;
-import jakarta.ws.rs.container.ContainerRequestContext;
-import jakarta.ws.rs.container.ContainerRequestFilter;
-import jakarta.ws.rs.ext.Provider;
-import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.Priorities;
-import jakarta.annotation.Priority;
+import com.aerosimo.ominet.dao.impl.APIResponseDTO;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
-@Provider
-@Priority(Priorities.AUTHENTICATION)
-public class PersonaHubFilter implements ContainerRequestFilter {
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+
+public class AuthCoreFilter implements Filter {
+
+    private static final ObjectMapper mapper = new ObjectMapper();
+
     @Override
-    public void filter(ContainerRequestContext ctx) {
+    public void init(FilterConfig filterConfig) throws ServletException {
+        // Initialization logic if needed
+    }
 
-        // Extract Authorization Header
-        String authHeader = ctx.getHeaderString("Authorization");
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+            throws IOException, ServletException {
+
+        if (!(request instanceof HttpServletRequest) || !(response instanceof HttpServletResponse)) {
+            chain.doFilter(request, response);
+            return;
+        }
+
+        HttpServletRequest httpReq = (HttpServletRequest) request;
+        HttpServletResponse httpResp = (HttpServletResponse) response;
+
+        String authHeader = httpReq.getHeader("Authorization");
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            abort(ctx, "Missing or invalid Authorization header");
+            unauthorized(httpResp);
             return;
         }
 
         String token = authHeader.substring("Bearer ".length()).trim();
 
-        // Validate via AuthCore
         boolean valid = AuthCore.validateToken(token);
 
         if (!valid) {
-            abort(ctx, "Invalid or expired token");
+            unauthorized(httpResp);
+            return;
         }
+
+        // Token is valid, continue to the REST endpoint
+        chain.doFilter(request, response);
     }
 
-    private void abort(ContainerRequestContext ctx, String message) {
-        ctx.abortWith(Response.status(Response.Status.UNAUTHORIZED)
-                .entity("{\"status\":\"unauthorized\",\"message\":\"" + message + "\"}")
-                .build());
+    private void unauthorized(HttpServletResponse resp) throws IOException {
+        resp.setContentType("application/json");
+        resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        APIResponseDTO apiResp = new APIResponseDTO("unauthorized", "Invalid or expired token");
+        resp.getWriter().write(mapper.writeValueAsString(apiResp));
+    }
+
+    @Override
+    public void destroy() {
+        // Cleanup if needed
     }
 }

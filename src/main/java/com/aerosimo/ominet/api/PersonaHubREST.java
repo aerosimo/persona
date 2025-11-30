@@ -31,7 +31,6 @@
 
 package com.aerosimo.ominet.api;
 
-import com.aerosimo.ominet.security.AuthCore;
 import com.aerosimo.ominet.dao.impl.*;
 import com.aerosimo.ominet.dao.mapper.PersonaDAO;
 import jakarta.ws.rs.*;
@@ -51,27 +50,16 @@ public class PersonaHubREST {
 
     private static final Logger log = LogManager.getLogger(PersonaHubREST.class);
 
-    /* =====================================================================================
-       Common Validation Helpers
-    ===================================================================================== */
-
-    private boolean tokenInvalid(String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return true;
-        }
-        String token = authHeader.substring("Bearer ".length()).trim();
-        return !AuthCore.validateToken(token);
-    }
-
-    private Response invalidTokenResponse() {
-        return Response.status(Response.Status.UNAUTHORIZED)
-                .entity(new APIResponseDTO("unsuccessful", "invalid or expired token"))
-                .build();
-    }
-
+    /* -------------------- Common Response Helpers -------------------- */
     private Response missingUsername() {
         return Response.status(Response.Status.BAD_REQUEST)
                 .entity(new APIResponseDTO("unsuccessful", "username is required"))
+                .build();
+    }
+
+    private Response badRequest(String message) {
+        return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new APIResponseDTO("unsuccessful", message))
                 .build();
     }
 
@@ -81,68 +69,71 @@ public class PersonaHubREST {
                 : Response.status(Response.Status.BAD_REQUEST).entity(resp).build();
     }
 
-    /* =====================================================================================
-       Avatar Upload (Multipart)
-    ===================================================================================== */
+    /* ======================= AVATAR ======================= */
     @POST
     @Path("/avatar/upload")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Produces(MediaType.APPLICATION_JSON)
     public Response uploadAvatar(
-            @HeaderParam("Authorization") String authHeader,
             @FormDataParam("username") String username,
             @FormDataParam("file") InputStream fileInputStream) {
-        if (tokenInvalid(authHeader)) return invalidTokenResponse();
+
         if (username == null || fileInputStream == null) return missingUsername();
-        APIResponseDTO resp = PersonaDAO.saveImage(username, fileInputStream);
-        return okOrBad(resp);
+        return okOrBad(PersonaDAO.saveImage(username, fileInputStream));
     }
 
-    /* =====================================================================================
-       Avatar Upload (Base64)
-    ===================================================================================== */
     @POST
     @Path("/avatar/transfer")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response uploadAvatarJson(
-            @HeaderParam("Authorization") String authHeader,
-            ImageRequestDTO req) {
-        if (tokenInvalid(authHeader)) return invalidTokenResponse();
-        if (req == null || req.getUsername() == null || req.getAvatar() == null) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new APIResponseDTO("unsuccessful", "missing required fields"))
-                    .build();
-        }
+    public Response uploadAvatarJson(ImageRequestDTO req) {
+        if (req == null || req.getUsername() == null || req.getAvatar() == null)
+            return badRequest("missing required fields");
+
         try {
             String base64 = req.getAvatar().contains(",")
                     ? req.getAvatar().split(",", 2)[1]
                     : req.getAvatar();
             byte[] bytes = Base64.getDecoder().decode(base64);
-            APIResponseDTO resp = PersonaDAO.saveImage(req.getUsername(), new ByteArrayInputStream(bytes));
-            return okOrBad(resp);
-        } catch (Exception e) {
-            log.error("Invalid base64 format", e);
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new APIResponseDTO("unsuccessful", "invalid base64 image format"))
-                    .build();
+            return okOrBad(PersonaDAO.saveImage(req.getUsername(), new ByteArrayInputStream(bytes)));
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid Base64 format", e);
+            return badRequest("invalid base64 image format");
         }
     }
 
-    /* =====================================================================================
-       ADDRESS
-    ===================================================================================== */
+    @GET
+    @Path("/avatar/{username}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getAvatar(@PathParam("username") String username) {
+        if (username == null || username.isEmpty()) return missingUsername();
 
+        ImageResponseDTO resp = PersonaDAO.getImage(username);
+        if (resp == null || resp.getAvatar() == null)
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity(new APIResponseDTO("unsuccessful", "no avatar found"))
+                    .build();
+
+        return Response.ok(resp).build();
+    }
+
+    @DELETE
+    @Path("/avatar/{username}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response deleteAvatar(@PathParam("username") String username) {
+        if (username == null || username.isEmpty()) return missingUsername();
+        return okOrBad(PersonaDAO.removeImage(username));
+    }
+
+    /* ======================= ADDRESS ======================= */
     @POST
     @Path("/address")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response saveAddress(
-            @HeaderParam("Authorization") String authHeader,
-            AddressRequestDTO req) {
-        if (tokenInvalid(authHeader)) return invalidTokenResponse();
+    public Response saveAddress(AddressRequestDTO req) {
         if (req == null || req.getUsername() == null) return missingUsername();
-        APIResponseDTO resp = PersonaDAO.saveAddress(
+
+        return okOrBad(PersonaDAO.saveAddress(
                 req.getUsername(),
                 req.getFirstline(),
                 req.getSecondline(),
@@ -150,87 +141,73 @@ public class PersonaHubREST {
                 req.getCity(),
                 req.getPostcode(),
                 req.getCountry()
-        );
-        return okOrBad(resp);
+        ));
     }
 
     @GET
     @Path("/address/{username}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getAddress(
-            @HeaderParam("Authorization") String authHeader,
-            @PathParam("username") String username) {
-        if (tokenInvalid(authHeader)) return invalidTokenResponse();
+    public Response getAddress(@PathParam("username") String username) {
         if (username == null || username.isEmpty()) return missingUsername();
+
         AddressResponseDTO resp = PersonaDAO.getAddress(username);
-        if (resp == null || resp.getUsername() == null) {
+        if (resp == null || resp.getUsername() == null)
             return Response.status(Response.Status.NOT_FOUND)
                     .entity(new APIResponseDTO("unsuccessful", "no address found"))
                     .build();
-        }
+
         return Response.ok(resp).build();
     }
 
-    /* =====================================================================================
-       CONTACT (Bulk Save)
-    ===================================================================================== */
+    @DELETE
+    @Path("/address")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response removeAddress(APIRequestDTO req) {
+        if (req == null || req.getUsername() == null) return missingUsername();
+        return okOrBad(PersonaDAO.removeAddress(req.getUsername()));
+    }
 
+    /* ======================= CONTACT ======================= */
     @POST
     @Path("/contact")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response saveContact(
-            @HeaderParam("Authorization") String authHeader,
-            List<ContactRequestDTO> reqList) {
-        if (tokenInvalid(authHeader)) return invalidTokenResponse();
-        if (reqList == null || reqList.isEmpty()) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new APIResponseDTO("unsuccessful", "No contact records supplied"))
-                    .build();
+    public Response saveContact(List<ContactRequestDTO> reqList) {
+        if (reqList == null || reqList.isEmpty())
+            return badRequest("No contact records supplied");
+
+        for (ContactRequestDTO r : reqList) {
+            if (r.getUsername() == null || r.getChannel() == null || r.getAddress() == null)
+                return badRequest("Missing required fields in one or more records");
         }
-        for (ContactRequestDTO req : reqList) {
-            if (req.getUsername() == null || req.getChannel() == null || req.getAddress() == null) {
-                return Response.status(Response.Status.BAD_REQUEST)
-                        .entity(new APIResponseDTO("unsuccessful",
-                                "Missing required fields in one or more records"))
-                        .build();
-            }
-        }
-        APIResponseDTO resp = PersonaDAO.saveContacts(reqList);
-        return okOrBad(resp);
+        return okOrBad(PersonaDAO.saveContacts(reqList));
     }
 
     @GET
     @Path("/contact/{username}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getContact(
-            @HeaderParam("Authorization") String authHeader,
-            @PathParam("username") String username) {
-        if (tokenInvalid(authHeader)) return invalidTokenResponse();
+    public Response getContact(@PathParam("username") String username) {
         if (username == null || username.isEmpty()) return missingUsername();
+
         List<ContactResponseDTO> list = PersonaDAO.getContact(username);
-        if (list == null || list.isEmpty()) {
+        if (list == null || list.isEmpty())
             return Response.status(Response.Status.NOT_FOUND)
                     .entity(new APIResponseDTO("unsuccessful", "no contact records found"))
                     .build();
-        }
+
         return Response.ok(list).build();
     }
 
-    /* =====================================================================================
-       PERSON
-    ===================================================================================== */
-
+    /* ======================= PERSON ======================= */
     @POST
     @Path("/person")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response savePerson(
-            @HeaderParam("Authorization") String authHeader,
-            PersonRequestDTO req) {
-        if (tokenInvalid(authHeader)) return invalidTokenResponse();
+    public Response savePerson(PersonRequestDTO req) {
         if (req == null || req.getUsername() == null) return missingUsername();
-        APIResponseDTO resp = PersonaDAO.savePerson(
+
+        return okOrBad(PersonaDAO.savePerson(
                 req.getUsername(),
                 req.getTitle(),
                 req.getFirstName(),
@@ -238,84 +215,29 @@ public class PersonaHubREST {
                 req.getLastName(),
                 req.getGender(),
                 req.getBirthday()
-        );
-        return okOrBad(resp);
+        ));
     }
 
     @GET
     @Path("/person/{username}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getPerson(
-            @HeaderParam("Authorization") String authHeader,
-            @PathParam("username") String username) {
-        if (tokenInvalid(authHeader)) return invalidTokenResponse();
+    public Response getPerson(@PathParam("username") String username) {
         if (username == null || username.isEmpty()) return missingUsername();
+
         PersonResponseDTO resp = PersonaDAO.getPerson(username);
-        if (resp == null || resp.getUsername() == null) {
+        if (resp == null || resp.getUsername() == null)
             return Response.status(Response.Status.NOT_FOUND)
                     .entity(new APIResponseDTO("unsuccessful", "no person record found"))
                     .build();
-        }
+
         return Response.ok(resp).build();
-    }
-
-    /* =====================================================================================
-       AVATAR GET + DELETE
-    ===================================================================================== */
-
-    @GET
-    @Path("/avatar/{username}")
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response getAvatar(
-            @HeaderParam("Authorization") String authHeader,
-            @PathParam("username") String username) {
-        if (tokenInvalid(authHeader)) return invalidTokenResponse();
-        if (username == null || username.isEmpty()) return missingUsername();
-        ImageResponseDTO image = PersonaDAO.getImage(username);
-        if (image == null || image.getAvatar() == null) {
-            return Response.status(Response.Status.NOT_FOUND)
-                    .entity(new APIResponseDTO("unsuccessful", "no avatar found"))
-                    .build();
-        }
-        return Response.ok(image).build();
-    }
-
-    @DELETE
-    @Path("/avatar/{username}")
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response deleteAvatar(
-            @HeaderParam("Authorization") String authHeader,
-            @PathParam("username") String username) {
-        if (tokenInvalid(authHeader)) return invalidTokenResponse();
-        if (username == null || username.isEmpty()) return missingUsername();
-        APIResponseDTO resp = PersonaDAO.removeImage(username);
-        return okOrBad(resp);
-    }
-
-    /* =====================================================================================
-       REMOVE PERSON & ADDRESS
-    ===================================================================================== */
-
-    @DELETE
-    @Path("/address")
-    @Consumes(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response removeAddress(
-            @HeaderParam("Authorization") String authHeader,
-            APIRequestDTO req) {
-        if (tokenInvalid(authHeader)) return invalidTokenResponse();
-        if (req == null || req.getUsername() == null) return missingUsername();
-        return okOrBad(PersonaDAO.removeAddress(req.getUsername()));
     }
 
     @DELETE
     @Path("/person")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response removePerson(
-            @HeaderParam("Authorization") String authHeader,
-            APIRequestDTO req) {
-        if (tokenInvalid(authHeader)) return invalidTokenResponse();
+    public Response removePerson(APIRequestDTO req) {
         if (req == null || req.getUsername() == null) return missingUsername();
         return okOrBad(PersonaDAO.removePerson(req.getUsername()));
     }

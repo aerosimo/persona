@@ -3,8 +3,8 @@
  *                                                                            *
  * Author:    eomisore                                                        *
  * File:      AuthCore.java                                                   *
- * Created:   30/11/2025, 00:04                                               *
- * Modified:  30/11/2025, 00:11                                               *
+ * Created:   30/11/2025, 21:34                                               *
+ * Modified:  30/11/2025, 21:34                                               *
  *                                                                            *
  * Copyright (c)  2025.  Aerosimo Ltd                                         *
  *                                                                            *
