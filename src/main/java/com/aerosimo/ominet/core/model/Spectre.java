@@ -33,6 +33,8 @@ package com.aerosimo.ominet.core.model;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -42,57 +44,60 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
-/**
- * Spectre client utility for recording errors via REST.
- */
 public class Spectre {
 
-    private static final String BASE_URL = "https://ominet.aerosimo.com:9443/spectre/api";
+    private static final Logger log = LogManager.getLogger(Spectre.class);
+    private static final String BASE_URL = "https://ominet.aerosimo.com:9443/spectre/api/errors";
     private static final ObjectMapper mapper = new ObjectMapper();
 
-    /**
-     * Stores a new error in Spectre.
-     *
-     * @param faultCode    error code
-     * @param faultMessage error message
-     * @param faultService originating service
-     * @return server response (e.g. generated error reference)
-     * @throws Exception if HTTP request fails
-     */
-    public static String recordError(String faultCode, String faultMessage, String faultService) throws Exception {
-        String endpoint = BASE_URL + "/errors";
-
+    public static SpectreResponse recordError(String faultCode, String faultMessage, String faultService) throws Exception {
+        String endpoint = BASE_URL + "/stow";
         String payload = mapper.writeValueAsString(Map.of(
                 "faultCode", faultCode,
                 "faultMessage", faultMessage,
                 "faultService", faultService));
-
+        log.info("Calling Spectre endpoint {} to stow the error", endpoint);
         HttpURLConnection conn = (HttpURLConnection) new URL(endpoint).openConnection();
         conn.setRequestMethod("POST");
         conn.setRequestProperty("Content-Type", "application/json");
         conn.setDoOutput(true);
-        conn.setConnectTimeout(3000);
-        conn.setReadTimeout(3000);
-
+        conn.setConnectTimeout(4000);
+        conn.setReadTimeout(4000);
         try (OutputStream os = conn.getOutputStream()) {
             os.write(payload.getBytes(StandardCharsets.UTF_8));
         }
-
         int status = conn.getResponseCode();
-        if (status != HttpURLConnection.HTTP_OK && status != HttpURLConnection.HTTP_CREATED) {
-            throw new RuntimeException("POST failed: HTTP error code " + status);
+        log.info("Spectre endpoint {} returned with status {}", endpoint, status);
+        BufferedReader br = new BufferedReader(new InputStreamReader(
+                (status >= 200 && status < 300) ? conn.getInputStream() : conn.getErrorStream(),
+                StandardCharsets.UTF_8
+        ));
+        StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line = br.readLine()) != null) {
+            sb.append(line);
         }
+        conn.disconnect();
+        Map<String, Object> responseMap = mapper.readValue(sb.toString(), new TypeReference<>() {});
+        String respStatus = responseMap.getOrDefault("status", "unknown").toString();
+        String respMessage = responseMap.getOrDefault("message", "no message").toString();
 
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = br.readLine()) != null) {
-                sb.append(line);
-            }
-            Map<String, Object> response = mapper.readValue(sb.toString(), new TypeReference<>() {});
-            return response.getOrDefault("recordError", "UNKNOWN").toString();
-        } finally {
-            conn.disconnect();
+        return new SpectreResponse(respStatus, respMessage);
+    }
+    public static class SpectreResponse {
+        private String status;
+        private String message;
+
+        public SpectreResponse(String status, String message) {
+            this.status = status;
+            this.message = message;
+        }
+        public String getStatus() { return status; }
+        public String getMessage() { return message; }
+
+        @Override
+        public String toString() {
+            return "SpectreResponse{status='" + status + "', message='" + message + "'}";
         }
     }
 }

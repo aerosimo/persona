@@ -84,35 +84,34 @@ public class PersonaDAO {
         }
     }
 
-    public static APIResponseDTO saveContact(String username, String channel, String address, String consent) {
-        log.info("Preparing to create or update user Contact details");
-        String response;
+    public static APIResponseDTO saveContacts(List<ContactRequestDTO> contacts) {
+        log.info("Preparing to create or update multiple user contact details");
         String sql = "{call identification_pkg.saveContact(?,?,?,?,?)}";
-        try (Connection con = Connect.dbase();
-             CallableStatement stmt = con.prepareCall(sql)) {
-            stmt.setString(1, username);
-            stmt.setString(2, channel);
-            stmt.setString(3, address);
-            stmt.setString(4, consent);
-            stmt.registerOutParameter(5, OracleTypes.VARCHAR);
-            stmt.execute();
-            response = stmt.getString(5);
-            if(response.equalsIgnoreCase("success")){
-                response = "success";
-                return new APIResponseDTO(response,"contact detail saved successfully");
-            } else {
-                response = "unsuccessful";
-                return new APIResponseDTO(response,"contact detail not saved");
+        try (Connection con = Connect.dbase()) {
+            for (ContactRequestDTO c : contacts) {
+                try (CallableStatement stmt = con.prepareCall(sql)) {
+                    stmt.setString(1, c.getUsername());
+                    stmt.setString(2, c.getChannel());
+                    stmt.setString(3, c.getAddress());
+                    stmt.setString(4, c.getConsent());
+                    stmt.registerOutParameter(5, OracleTypes.VARCHAR);
+                    stmt.execute();
+                    String result = stmt.getString(5);
+                    if (!"success".equalsIgnoreCase(result)) {
+                        log.warn("Failed to save contact for user {}", c.getUsername());
+                        return new APIResponseDTO("unsuccessful", "Contact for user " + c.getUsername() + " was not saved");
+                    }
+                }
             }
+            return new APIResponseDTO("success", "All contacts saved successfully");
         } catch (SQLException err) {
-            log.error("Error in identification_pkg (SAVE CONTACT)", err);
+            log.error("Error while saving multiple contacts", err);
             try {
-                Spectre.recordError("TE-20001", "Error in identification_pkg (SAVE CONTACT): " + err.getMessage(), PersonaDAO.class.getName());
-                response = "internal server error";
-                return new APIResponseDTO("error",response);
+                Spectre.recordError("TE-20002", "Error saving multiple contacts: " + err.getMessage(), PersonaDAO.class.getName());
             } catch (Exception e) {
-                throw new RuntimeException(e);
+                log.error("Failed to log Spectre error", e);
             }
+            return new APIResponseDTO("error", "internal server error");
         }
     }
 
@@ -194,31 +193,29 @@ public class PersonaDAO {
             try (ResultSet rs = (ResultSet) stmt.getObject(2)) {
                 if (rs != null && rs.next()) {
                     response = new AddressResponseDTO();
-                    response.setUsername("username");
-                    response.setFirstline("firstline");
-                    response.setSecondline("secondline");
-                    response.setThirdline("thirdline");
-                    response.setCity("city");
-                    response.setPostcode("postcode");
-                    response.setCountry("country");
-                    response.setModifiedBy("modifiedBy");
-                    response.setModifiedDate("modifiedDate");
+                    response.setUsername(rs.getString("username"));
+                    response.setFirstline(rs.getString("firstline"));
+                    response.setSecondline(rs.getString("secondline"));
+                    response.setThirdline(rs.getString("thirdline"));
+                    response.setCity(rs.getString("city"));
+                    response.setPostcode(rs.getString("postcode"));
+                    response.setCountry(rs.getString("country"));
+                    response.setModifiedBy(rs.getString("modifiedBy"));
+                    response.setModifiedDate(rs.getString("modifiedDate"));
                 }
             }
         } catch (SQLException err) {
             log.error("Error in identification_pkg (GET ADDRESS)", err);
             try {
                 Spectre.recordError("TE-20001", err.getMessage(), PersonaDAO.class.getName());
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            } catch (Exception ignored) {}
         }
         return response;
     }
 
     public static List<ContactResponseDTO> getContact(String username) {
         log.info("Preparing to retrieve user Contact details");
-        List<ContactResponseDTO> response =  new ArrayList<>();
+        List<ContactResponseDTO> response = new ArrayList<>();
         String sql = "{call identification_pkg.getContact(?,?)}";
         try (Connection con = Connect.dbase();
              CallableStatement stmt = con.prepareCall(sql)) {
@@ -241,11 +238,9 @@ public class PersonaDAO {
             log.error("Error in identification_pkg (GET CONTACT)", err);
             try {
                 Spectre.recordError("TE-20001", err.getMessage(), PersonaDAO.class.getName());
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            } catch (Exception ignored) {}
         }
-        return response;
+        return response; // NEVER return null
     }
 
     public static ImageResponseDTO getImage(String username) {
@@ -297,29 +292,28 @@ public class PersonaDAO {
             try (ResultSet rs = (ResultSet) stmt.getObject(2)) {
                 if (rs != null && rs.next()) {
                     response = new PersonResponseDTO();
-                    response.setUsername("username");
-                    response.setTitle("title");
-                    response.setFirstName("firstName");
-                    response.setMiddleName("middleName");
-                    response.setLastName("lastName");
-                    response.setZodiacSign("zodiacSign");
-                    response.setGender("gender");
-                    response.setBirthday("birthday");
-                    response.setAge("age");
-                    response.setModifiedBy("modifiedBy");
-                    response.setModifiedDate("modifiedDate");
+                    response.setUsername(rs.getString("username"));
+                    response.setTitle(rs.getString("title"));
+                    response.setFirstName(rs.getString("firstName"));
+                    response.setMiddleName(rs.getString("middleName"));
+                    response.setLastName(rs.getString("lastName"));
+                    response.setZodiacSign(rs.getString("zodiacSign"));
+                    response.setGender(rs.getString("gender"));
+                    response.setBirthday(rs.getString("birthday"));
+                    response.setAge(rs.getString("age"));
+                    response.setModifiedBy(rs.getString("modifiedBy"));
+                    response.setModifiedDate(rs.getString("modifiedDate"));
                 }
             }
         } catch (SQLException err) {
             log.error("Error in identification_pkg (GET PERSON)", err);
             try {
                 Spectre.recordError("TE-20001", err.getMessage(), PersonaDAO.class.getName());
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            } catch (Exception ignored) {}
         }
         return response;
     }
+
 
     public static APIResponseDTO removeAddress(String username) {
         log.info("Preparing to remove user Address details");

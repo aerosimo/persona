@@ -2,9 +2,9 @@
  * This piece of work is to enhance personahub project functionality.         *
  *                                                                            *
  * Author:    eomisore                                                        *
- * File:      PersonaApplication.java                                         *
- * Created:   15/11/2025, 23:37                                               *
- * Modified:  15/11/2025, 23:37                                               *
+ * File:      ContactRequestDTO.java                                          *
+ * Created:   29/11/2025, 21:02                                               *
+ * Modified:  29/11/2025, 21:02                                               *
  *                                                                            *
  * Copyright (c)  2025.  Aerosimo Ltd                                         *
  *                                                                            *
@@ -29,12 +29,64 @@
  *                                                                            *
  ******************************************************************************/
 
-package com.aerosimo.ominet.api;
+package com.aerosimo.ominet.dao.impl;
 
-import jakarta.ws.rs.ApplicationPath;
-import jakarta.ws.rs.core.Application;
+public class ContactRequestDTO {
 
-@ApplicationPath("/api")
-public class PersonaApplication extends Application {
-    // Auto-scans classes annotated with @Path
+    private String username;
+    private String channel;
+    private String address;
+    private String consent;
+
+    public ContactRequestDTO() {
+    }
+
+    public ContactRequestDTO(String username, String channel, String address, String consent) {
+        this.username = username;
+        this.channel = channel;
+        this.address = address;
+        this.consent = consent;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getChannel() {
+        return channel;
+    }
+
+    public void setChannel(String channel) {
+        this.channel = channel;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getConsent() {
+        return consent;
+    }
+
+    public void setConsent(String consent) {
+        this.consent = consent;
+    }
+
+    @Override
+    public String toString() {
+        return "ContactRequestDTO{" +
+                "username='" + username + '\'' +
+                ", channel='" + channel + '\'' +
+                ", address='" + address + '\'' +
+                ", consent='" + consent + '\'' +
+                '}';
+    }
 }

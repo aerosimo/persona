@@ -3,8 +3,8 @@
  *                                                                            *
  * Author:    eomisore                                                        *
  * File:      AuthCore.java                                                   *
- * Created:   21/11/2025, 01:00                                               *
- * Modified:  21/11/2025, 01:00                                               *
+ * Created:   30/11/2025, 00:04                                               *
+ * Modified:  30/11/2025, 00:11                                               *
  *                                                                            *
  * Copyright (c)  2025.  Aerosimo Ltd                                         *
  *                                                                            *
@@ -29,7 +29,7 @@
  *                                                                            *
  ******************************************************************************/
 
-package com.aerosimo.ominet.core.model;
+package com.aerosimo.ominet.security;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -38,80 +38,80 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.aerosimo.ominet.dao.impl.APIResponseDTO;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import java.util.concurrent.TimeUnit;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
-
 public class AuthCore {
 
-    private static final String AUTHCORE_BASE_URL = "https://ominet.aerosimo.com:9443/authcore/api/auth/validate";
-    private static final String HMAC_SECRET = "SuperSecretSharedKey123";
+    private static final String AUTHCORE_BASE_URL =
+            "https://ominet.aerosimo.com:9443/authcore/api/auth/validate";
 
-    private static final OkHttpClient http = new OkHttpClient();
-    private static final ObjectMapper mapper = new ObjectMapper();
+    private static final MediaType JSON = MediaType.parse("application/json");
 
-    // Cache: token → boolean (valid/invalid)
+    // Dedicated HTTP Client with sensible timeouts
+    private static final OkHttpClient http = new OkHttpClient.Builder()
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .readTimeout(6, TimeUnit.SECONDS)
+            .writeTimeout(6, TimeUnit.SECONDS)
+            .build();
+
+    // ObjectMapper that won't crash if API adds new fields
+    private static final ObjectMapper mapper = new ObjectMapper()
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+    // Cache: token → boolean (valid / invalid)
     private static final Cache<String, Boolean> tokenCache = Caffeine.newBuilder()
             .expireAfterWrite(10, TimeUnit.MINUTES)
             .maximumSize(5000)
             .build();
 
-    /**
-     * Validate token using cache + HMAC
-     */
     public static boolean validateToken(String token) {
-
+        if (token == null || token.trim().isEmpty()) {
+            return false;
+        }
+        // 1. Check cache
         Boolean cached = tokenCache.getIfPresent(token);
         if (cached != null) {
             return cached;
         }
-
         try {
-            // build request JSON
-            Map<String, String> requestPayload = new HashMap<>();
-            requestPayload.put("token", token);
-
-            String json = mapper.writeValueAsString(requestPayload);
-
+            // Build JSON payload
+            Map<String, String> payload = new HashMap<>();
+            payload.put("token", token);
+            String json = mapper.writeValueAsString(payload);
             Request request = new Request.Builder()
                     .url(AUTHCORE_BASE_URL)
+                    .post(RequestBody.create(json, JSON))
                     .addHeader("Content-Type", "application/json")
-                    // .addHeader("X-Service-Signature", generateHmac(json))
-                    .post(RequestBody.create(json, MediaType.parse("application/json")))
                     .build();
-
-            Response response = http.newCall(request).execute();
-            String body = response.body().string();
-
-            APIResponseDTO dto = mapper.readValue(body, APIResponseDTO.class);
-
-            boolean valid = "successful".equalsIgnoreCase(dto.getStatus());
-
-            tokenCache.put(token, valid);
-
-            return valid;
-
+            try (Response response = http.newCall(request).execute()) {
+                if (!response.isSuccessful()) {
+                    System.err.println("AuthCore HTTP error: " + response.code());
+                    tokenCache.put(token, false);
+                    return false;
+                }
+                if (response.body() == null) {
+                    System.err.println("AuthCore returned empty body");
+                    tokenCache.put(token, false);
+                    return false;
+                }
+                String body = response.body().string();
+                APIResponseDTO dto = mapper.readValue(body, APIResponseDTO.class);
+                // expected: dto.status = "success" or "successful"
+                boolean valid =
+                        "success".equalsIgnoreCase(dto.getStatus()) ||
+                                "successful".equalsIgnoreCase(dto.getStatus());
+                tokenCache.put(token, valid);
+                return valid;
+            }
         } catch (Exception ex) {
-            ex.printStackTrace();
+            System.err.println("AuthCore token validation failed: " + ex.getMessage());
             return false;
         }
-    }
-
-    /**
-     * HMAC SHA256 service-to-service signature
-     */
-    private static String generateHmac(String data) throws Exception {
-        Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
-        SecretKeySpec keySpec = new SecretKeySpec(HMAC_SECRET.getBytes(), "HmacSHA256");
-        sha256_HMAC.init(keySpec);
-        byte[] hash = sha256_HMAC.doFinal(data.getBytes());
-        return Base64.getEncoder().encodeToString(hash);
     }
 }
