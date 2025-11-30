@@ -40,10 +40,12 @@ import jakarta.servlet.FilterConfig;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
+import jakarta.servlet.annotation.WebFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
+@WebFilter("/profile/*")
 public class AuthCoreFilter implements Filter {
 
     private static final ObjectMapper mapper = new ObjectMapper();
