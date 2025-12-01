@@ -57,18 +57,15 @@ public class AuthCore {
 
     private static final MediaType JSON = MediaType.parse("application/json");
 
-    // Dedicated HTTP Client with sensible timeouts
     private static final OkHttpClient http = new OkHttpClient.Builder()
             .connectTimeout(5, TimeUnit.SECONDS)
             .readTimeout(6, TimeUnit.SECONDS)
             .writeTimeout(6, TimeUnit.SECONDS)
             .build();
 
-    // ObjectMapper that won't crash if API adds new fields
     private static final ObjectMapper mapper = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-    // Cache: token → boolean (valid / invalid)
     private static final Cache<String, Boolean> tokenCache = Caffeine.newBuilder()
             .expireAfterWrite(10, TimeUnit.MINUTES)
             .maximumSize(5000)
@@ -80,13 +77,11 @@ public class AuthCore {
             log.error("Invalid token");
             return false;
         }
-        // 1. Check cache
         Boolean cached = tokenCache.getIfPresent(token);
         if (cached != null) {
             return cached;
         }
         try {
-            // Build JSON payload
             Map<String, String> payload = new HashMap<>();
             payload.put("authKey", token);
             String json = mapper.writeValueAsString(payload);

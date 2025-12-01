@@ -80,7 +80,6 @@ public class PersonaHubREST {
     public Response uploadAvatar(
             @FormDataParam("username") String username,
             @FormDataParam("file") InputStream fileInputStream) {
-
         if (username == null || fileInputStream == null) return missingUsername();
         return okOrBad(PersonaDAO.saveImage(username, fileInputStream));
     }
@@ -93,7 +92,6 @@ public class PersonaHubREST {
         log.info("Uploading avatar image for user {} ", req.getUsername());
         if (req == null || req.getUsername() == null || req.getAvatar() == null)
             return badRequest("missing required fields");
-
         try {
             String base64 = req.getAvatar().contains(",")
                     ? req.getAvatar().split(",", 2)[1]
@@ -111,22 +109,21 @@ public class PersonaHubREST {
     @Produces(MediaType.APPLICATION_JSON)
     public Response getAvatar(@PathParam("username") String username) {
         if (username == null || username.isEmpty()) return missingUsername();
-
         ImageResponseDTO resp = PersonaDAO.getImage(username);
         if (resp == null || resp.getAvatar() == null)
             return Response.status(Response.Status.NOT_FOUND)
                     .entity(new APIResponseDTO("unsuccessful", "no avatar found"))
                     .build();
-
         return Response.ok(resp).build();
     }
 
     @DELETE
-    @Path("/avatar/{username}")
+    @Path("/avatar")
+    @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response deleteAvatar(@PathParam("username") String username) {
-        if (username == null || username.isEmpty()) return missingUsername();
-        return okOrBad(PersonaDAO.removeImage(username));
+    public Response deleteAvatar(APIRequestDTO req) {
+        if (req == null || req.getUsername() == null) return missingUsername();
+        return okOrBad(PersonaDAO.removeImage(req.getUsername()));
     }
 
     /* ======================= ADDRESS ======================= */
@@ -136,15 +133,9 @@ public class PersonaHubREST {
     @Produces(MediaType.APPLICATION_JSON)
     public Response saveAddress(AddressRequestDTO req) {
         if (req == null || req.getUsername() == null) return missingUsername();
-
         return okOrBad(PersonaDAO.saveAddress(
-                req.getUsername(),
-                req.getFirstline(),
-                req.getSecondline(),
-                req.getThirdline(),
-                req.getCity(),
-                req.getPostcode(),
-                req.getCountry()
+                req.getUsername(), req.getFirstline(), req.getSecondline(), req.getThirdline(),
+                req.getCity(), req.getPostcode(), req.getCountry()
         ));
     }
 
@@ -153,13 +144,11 @@ public class PersonaHubREST {
     @Produces(MediaType.APPLICATION_JSON)
     public Response getAddress(@PathParam("username") String username) {
         if (username == null || username.isEmpty()) return missingUsername();
-
         AddressResponseDTO resp = PersonaDAO.getAddress(username);
         if (resp == null || resp.getUsername() == null)
             return Response.status(Response.Status.NOT_FOUND)
                     .entity(new APIResponseDTO("unsuccessful", "no address found"))
                     .build();
-
         return Response.ok(resp).build();
     }
 
@@ -180,7 +169,6 @@ public class PersonaHubREST {
     public Response saveContact(List<ContactRequestDTO> reqList) {
         if (reqList == null || reqList.isEmpty())
             return badRequest("No contact records supplied");
-
         for (ContactRequestDTO r : reqList) {
             if (r.getUsername() == null || r.getChannel() == null || r.getAddress() == null)
                 return badRequest("Missing required fields in one or more records");
@@ -193,13 +181,11 @@ public class PersonaHubREST {
     @Produces(MediaType.APPLICATION_JSON)
     public Response getContact(@PathParam("username") String username) {
         if (username == null || username.isEmpty()) return missingUsername();
-
         List<ContactResponseDTO> list = PersonaDAO.getContact(username);
         if (list == null || list.isEmpty())
             return Response.status(Response.Status.NOT_FOUND)
                     .entity(new APIResponseDTO("unsuccessful", "no contact records found"))
                     .build();
-
         return Response.ok(list).build();
     }
 
@@ -210,15 +196,9 @@ public class PersonaHubREST {
     @Produces(MediaType.APPLICATION_JSON)
     public Response savePerson(PersonRequestDTO req) {
         if (req == null || req.getUsername() == null) return missingUsername();
-
         return okOrBad(PersonaDAO.savePerson(
-                req.getUsername(),
-                req.getTitle(),
-                req.getFirstName(),
-                req.getMiddleName(),
-                req.getLastName(),
-                req.getGender(),
-                req.getBirthday()
+                req.getUsername(), req.getTitle(), req.getFirstName(),
+                req.getMiddleName(),req.getLastName(), req.getGender(), req.getBirthday()
         ));
     }
 
@@ -227,13 +207,11 @@ public class PersonaHubREST {
     @Produces(MediaType.APPLICATION_JSON)
     public Response getPerson(@PathParam("username") String username) {
         if (username == null || username.isEmpty()) return missingUsername();
-
         PersonResponseDTO resp = PersonaDAO.getPerson(username);
         if (resp == null || resp.getUsername() == null)
             return Response.status(Response.Status.NOT_FOUND)
                     .entity(new APIResponseDTO("unsuccessful", "no person record found"))
                     .build();
-
         return Response.ok(resp).build();
     }
 

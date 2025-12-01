@@ -58,20 +58,16 @@ public class AuthCoreFilter implements ContainerRequestFilter {
         String authHeader = ctx.getHeaderString(HttpHeaders.AUTHORIZATION);
         log.info("AuthCoreFilter invoked for {} with header {}",
                 ctx.getUriInfo().getPath(), authHeader);
-
         if (authHeader == null || !authHeader.toLowerCase().startsWith("bearer ")) {
             abort(ctx, "Missing or invalid Authorization header");
             return;
         }
-
         String token = authHeader.substring(7).trim();
         log.info("Token: {}", token);
         boolean valid = AuthCore.validateToken(token);
-
         if (!valid) {
             abort(ctx, "Invalid or expired token");
         }
-        // else continue to resource
     }
 
     private void abort(ContainerRequestContext ctx, String message) {
