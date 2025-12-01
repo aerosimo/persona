@@ -88,7 +88,7 @@ public class AuthCore {
         try {
             // Build JSON payload
             Map<String, String> payload = new HashMap<>();
-            payload.put("authkey", token);
+            payload.put("authKey", token);
             String json = mapper.writeValueAsString(payload);
             log.info("Sending request {} to server endpoint {}",json, AUTHCORE_BASE_URL);
             Request request = new Request.Builder()
