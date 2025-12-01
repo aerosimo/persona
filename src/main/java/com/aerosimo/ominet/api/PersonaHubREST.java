@@ -189,6 +189,15 @@ public class PersonaHubREST {
         return Response.ok(list).build();
     }
 
+    @DELETE
+    @Path("/contact")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response removeContact(DeleteContactDTO req) {
+        if (req == null || req.getUsername() == null) return missingUsername();
+        return okOrBad(PersonaDAO.removeContact(req.getUsername(), req.getChannel()));
+    }
+
     /* ======================= PERSON ======================= */
     @POST
     @Path("/person")

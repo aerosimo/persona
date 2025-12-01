@@ -246,7 +246,7 @@ public class PersonaDAO {
     public static ImageResponseDTO getImage(String username) {
         log.info("Preparing to retrieve user Avatar details");
         ImageResponseDTO response = null;
-        String sql = "{call identification_pkg.getImage(?,?,?)}";
+        String sql = "{call identification_pkg.getImage(?,?)}";
         try (Connection con = Connect.dbase();
              CallableStatement stmt = con.prepareCall(sql)) {
             stmt.setString(1, username);
