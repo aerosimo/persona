@@ -97,22 +97,15 @@ public class AuthCore {
                     .addHeader("Content-Type", "application/json")
                     .build();
             try (Response response = http.newCall(request).execute()) {
-                if (!response.isSuccessful()) {
-                    System.err.println("AuthCore HTTP error: " + response.code());
-                    tokenCache.put(token, false);
-                    return false;
-                }
-                if (response.body() == null) {
-                    System.err.println("AuthCore returned empty body");
+                if (!response.isSuccessful() || response.body() == null) {
                     tokenCache.put(token, false);
                     return false;
                 }
                 String body = response.body().string();
-                log.info("Response body is {}", body);
+                log.info("AuthCore response: {}", body);
                 APIResponseDTO dto = mapper.readValue(body, APIResponseDTO.class);
-                boolean valid =
-                        "success".equalsIgnoreCase(dto.getStatus()) ||
-                                "successful".equalsIgnoreCase(dto.getStatus());
+                boolean valid = "success".equalsIgnoreCase(dto.getStatus())
+                        || "successful".equalsIgnoreCase(dto.getStatus());
                 tokenCache.put(token, valid);
                 return valid;
             }
