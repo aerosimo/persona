@@ -88,7 +88,7 @@ public class AuthCore {
         try {
             // Build JSON payload
             Map<String, String> payload = new HashMap<>();
-            payload.put("token", token);
+            payload.put("authkey", token);
             String json = mapper.writeValueAsString(payload);
             log.info("Sending request {} to server endpoint {}",json, AUTHCORE_BASE_URL);
             Request request = new Request.Builder()
@@ -98,12 +98,14 @@ public class AuthCore {
                     .build();
             try (Response response = http.newCall(request).execute()) {
                 if (!response.isSuccessful() || response.body() == null) {
+                    log.error("AuthCore HTTP error: {}", response.code());
                     tokenCache.put(token, false);
                     return false;
                 }
-                String body = response.body().string();
-                log.info("AuthCore response: {}", body);
+                String body = response.body().string(); // consume once
+                log.info("AuthCore response body: {}", body);
                 APIResponseDTO dto = mapper.readValue(body, APIResponseDTO.class);
+                log.info("Parsed AuthCore status: {}", dto.getStatus());
                 boolean valid = "success".equalsIgnoreCase(dto.getStatus())
                         || "successful".equalsIgnoreCase(dto.getStatus());
                 tokenCache.put(token, valid);
