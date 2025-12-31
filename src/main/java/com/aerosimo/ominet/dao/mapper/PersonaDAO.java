@@ -435,6 +435,7 @@ public class PersonaDAO {
     public static APIResponseDTO getMetrics(String username) {
         log.info("Preparing to retrieve user profile completion");
         String response;
+        String status;
         String sql = "{call identification_pkg.metrics(?,?)}";
         try (Connection con = Connect.dbase();
              CallableStatement stmt = con.prepareCall(sql)) {
@@ -442,13 +443,20 @@ public class PersonaDAO {
             stmt.registerOutParameter(2, OracleTypes.CURSOR);
             stmt.execute();
             response = stmt.getString(2);
-            return new APIResponseDTO("success",response);
+            if (response.equalsIgnoreCase("unsuccessful")) {
+                status = "unsuccessful";
+                return new APIResponseDTO(status,response);
+            } else {
+                status = "success";
+                return new APIResponseDTO(status,response);
+            }
         } catch (SQLException err) {
             log.error("Error in identification_pkg (GET METRICS)", err);
             try {
                 Spectre.recordError("TE-20001", "Error in identification_pkg (GET METRICS): " + err.getMessage(), PersonaDAO.class.getName());
                 response = "internal server error";
-                return new APIResponseDTO("error",response);
+                status = "error";
+                return new APIResponseDTO(status,response);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
