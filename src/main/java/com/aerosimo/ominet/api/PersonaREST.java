@@ -32,6 +32,7 @@
 package com.aerosimo.ominet.api;
 
 import com.aerosimo.ominet.dao.impl.APIResponseDTO;
+import com.aerosimo.ominet.dao.impl.HoroscopeResponseDTO;
 import com.aerosimo.ominet.dao.mapper.PersonaDAO;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -41,6 +42,9 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import java.util.List;
+import java.util.Objects;
 
 @Path("/prime")
 public class PersonaREST {
@@ -69,6 +73,19 @@ public class PersonaREST {
     public Response getMetrics(@PathParam("username") String username) {
         if (username == null || username.isEmpty()) return missingUsername();
         APIResponseDTO resp = PersonaDAO.getMetrics(username);
+        if (Objects.equals(resp.getMessage(), "Profile completion: 0%")) return badRequest("User Profile does not exist");
+        else return Response.ok(resp).build();
+    }
+
+    /* ======================= FLOW ======================= */
+    @GET
+    @Path("/announcer")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getHoroscope() {
+        List<HoroscopeResponseDTO> resp = PersonaDAO.getHoroscope();
+        if (resp.isEmpty()) return Response.status(Response.Status.NOT_FOUND)
+                .entity(new APIResponseDTO("unsuccessful", "no user records found"))
+                .build();
         return Response.ok(resp).build();
     }
 }

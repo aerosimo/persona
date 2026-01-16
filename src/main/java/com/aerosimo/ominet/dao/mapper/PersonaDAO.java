@@ -34,13 +34,17 @@ package com.aerosimo.ominet.dao.mapper;
 import com.aerosimo.ominet.core.config.Connect;
 import com.aerosimo.ominet.core.model.Spectre;
 import com.aerosimo.ominet.dao.impl.APIResponseDTO;
+import com.aerosimo.ominet.dao.impl.HoroscopeResponseDTO;
 import oracle.jdbc.OracleTypes;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.sql.CallableStatement;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class PersonaDAO {
 
@@ -59,10 +63,10 @@ public class PersonaDAO {
             response = stmt.getString(2);
             if (response.equalsIgnoreCase("unsuccessful")) {
                 status = "unsuccessful";
-                return new APIResponseDTO(status,response);
+                return new APIResponseDTO(status, response);
             } else {
                 status = "success";
-                return new APIResponseDTO(status,response);
+                return new APIResponseDTO(status, response);
             }
         } catch (SQLException err) {
             log.error("Error in identification_pkg (GET METRICS)", err);
@@ -70,10 +74,38 @@ public class PersonaDAO {
                 Spectre.recordError("TE-20001", "Error in identification_pkg (GET METRICS): " + err.getMessage(), PersonaDAO.class.getName());
                 response = "internal server error";
                 status = "error";
-                return new APIResponseDTO(status,response);
+                return new APIResponseDTO(status, response);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }
+    }
+
+    public static List<HoroscopeResponseDTO> getHoroscope() {
+        log.info("Preparing to retrieve user profile daily horoscope");
+        List<HoroscopeResponseDTO> response = new ArrayList<>();
+        String sql = "{call identification_pkg.dailyHoroscope(?)}";
+        try (Connection connection = Connect.dbase();
+             CallableStatement stmt = connection.prepareCall(sql)) {
+            stmt.registerOutParameter(1, OracleTypes.VARCHAR);
+            stmt.execute();
+            try (ResultSet rs = (ResultSet) stmt.getObject(1)) {
+                while (rs != null && rs.next()) {
+                    HoroscopeResponseDTO sign = new HoroscopeResponseDTO();
+                    sign.setUsername(rs.getString("username"));
+                    sign.setEmail(rs.getString("email"));
+                    sign.setZodiacSign(rs.getString("zodiacSign"));
+                    sign.setNarrative(rs.getString("narrative"));
+                    response.add(sign);
+                }
+            }
+        } catch (SQLException err) {
+            log.error("Error in identification_pkg (GET HOROSCOPE)", err);
+            try {
+                Spectre.recordError("TE-20001", err.getMessage(), PersonaDAO.class.getName());
+            } catch (Exception ignored) {
+            }
+        }
+        return response;
     }
 }
