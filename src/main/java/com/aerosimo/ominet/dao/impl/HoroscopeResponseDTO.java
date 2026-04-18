@@ -33,35 +33,17 @@ package com.aerosimo.ominet.dao.impl;
 
 public class HoroscopeResponseDTO {
 
-    private String username;
-    private String email;
     private String zodiacSign;
+    private String currentDay;
     private String narrative;
 
     public HoroscopeResponseDTO() {
     }
 
-    public HoroscopeResponseDTO(String username, String email, String zodiacSign, String narrative) {
-        this.username = username;
-        this.email = email;
+    public HoroscopeResponseDTO(String zodiacSign, String currentDay, String narrative) {
         this.zodiacSign = zodiacSign;
+        this.currentDay = currentDay;
         this.narrative = narrative;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
     }
 
     public String getZodiacSign() {
@@ -70,6 +52,14 @@ public class HoroscopeResponseDTO {
 
     public void setZodiacSign(String zodiacSign) {
         this.zodiacSign = zodiacSign;
+    }
+
+    public String getCurrentDay() {
+        return currentDay;
+    }
+
+    public void setCurrentDay(String currentDay) {
+        this.currentDay = currentDay;
     }
 
     public String getNarrative() {
@@ -83,9 +73,8 @@ public class HoroscopeResponseDTO {
     @Override
     public String toString() {
         return "HoroscopeResponseDTO{" +
-                "username='" + username + '\'' +
-                ", email='" + email + '\'' +
-                ", zodiacSign='" + zodiacSign + '\'' +
+                "zodiacSign='" + zodiacSign + '\'' +
+                ", currentDay='" + currentDay + '\'' +
                 ", narrative='" + narrative + '\'' +
                 '}';
     }

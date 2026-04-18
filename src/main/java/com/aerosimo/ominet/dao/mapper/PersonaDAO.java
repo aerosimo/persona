@@ -43,8 +43,6 @@ import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
 
 public class PersonaDAO {
 
@@ -81,28 +79,27 @@ public class PersonaDAO {
         }
     }
 
-    public static List<HoroscopeResponseDTO> getHoroscope() {
-        log.info("Preparing to retrieve user profile daily horoscope");
-        List<HoroscopeResponseDTO> response = new ArrayList<>();
-        String sql = "{call identification_pkg.dailyHoroscope(?)}";
+    public static HoroscopeResponseDTO getHoroscope(String username) {
+        log.info("Preparing to retrieve daily horoscope for user: {}", username);
+        HoroscopeResponseDTO response = null;
+        String sql = "{call starcast_pkg.getUserHoroscope(?,?)}";
         try (Connection connection = Connect.dbase();
              CallableStatement stmt = connection.prepareCall(sql)) {
-            stmt.registerOutParameter(1, OracleTypes.VARCHAR);
+            stmt.setString(1, username);
+            stmt.registerOutParameter(2, OracleTypes.CURSOR);
             stmt.execute();
-            try (ResultSet rs = (ResultSet) stmt.getObject(1)) {
-                while (rs != null && rs.next()) {
-                    HoroscopeResponseDTO sign = new HoroscopeResponseDTO();
-                    sign.setUsername(rs.getString("username"));
-                    sign.setEmail(rs.getString("email"));
-                    sign.setZodiacSign(rs.getString("zodiacSign"));
-                    sign.setNarrative(rs.getString("narrative"));
-                    response.add(sign);
+            try (ResultSet rs = (ResultSet) stmt.getObject(2)) {
+                if (rs != null && rs.next()) {
+                    response = new HoroscopeResponseDTO();
+                    response.setZodiacSign(rs.getString("zodiacSign"));
+                    response.setCurrentDay(rs.getString("currentDay"));
+                    response.setNarrative(rs.getString("narrative"));
                 }
             }
         } catch (SQLException err) {
-            log.error("Error in identification_pkg (GET HOROSCOPE)", err);
+            log.error("Error in starcast_pkg (GET USER  HOROSCOPE)", err);
             try {
-                Spectre.recordError("TE-20001", err.getMessage(), PersonaDAO.class.getName());
+                Spectre.recordError("TE-20001", "Horoscope retrieval failed: " + err.getMessage(), PersonaDAO.class.getName());
             } catch (Exception ignored) {
             }
         }

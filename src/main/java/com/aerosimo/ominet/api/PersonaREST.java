@@ -77,15 +77,17 @@ public class PersonaREST {
         else return Response.ok(resp).build();
     }
 
-    /* ======================= FLOW ======================= */
+    /* ======================= ANNOUNCER ======================= */
     @GET
-    @Path("/announcer")
+    @Path("/announcer/{username}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getHoroscope() {
-        List<HoroscopeResponseDTO> resp = PersonaDAO.getHoroscope();
-        if (resp.isEmpty()) return Response.status(Response.Status.NOT_FOUND)
-                .entity(new APIResponseDTO("unsuccessful", "no user records found"))
-                .build();
+    public Response getHoroscope(@PathParam("username") String username) {
+        HoroscopeResponseDTO resp = PersonaDAO.getHoroscope(username);
+        if (resp == null) {
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity(new APIResponseDTO("unsuccessful", "No horoscope found for user: " + username))
+                    .build();
+        }
         return Response.ok(resp).build();
     }
 }
