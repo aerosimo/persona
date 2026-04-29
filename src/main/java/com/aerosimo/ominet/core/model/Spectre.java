@@ -31,6 +31,7 @@
 
 package com.aerosimo.ominet.core.model;
 
+import com.aerosimo.ominet.core.config.Connect;
 import com.aerosimo.ominet.dao.impl.APIResponseDTO;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -48,7 +49,7 @@ import java.util.Map;
 public class Spectre {
 
     private static final Logger log = LogManager.getLogger(Spectre.class);
-    private static final String BASE_URL = "https://ominet.aerosimo.com:9443/spectre/api/errors";
+    private static final String BASE_URL = Connect.tomcatURL() + "/spectre/api/errors";
     private static final ObjectMapper mapper = new ObjectMapper();
 
     public static APIResponseDTO recordError(String faultCode, String faultMessage, String faultService) throws Exception {
